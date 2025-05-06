@@ -1,0 +1,30 @@
+
+clinical_data_path: "../../data/csv/labels_BinClass.csv"
+#fmri_data_path: "../../data/pt_files/"
+mean_image_path: "../../data/processed/mean_image/T_45/" 
+precompute_save_dir: "../../data/processed/mean_image/T_45/" 
+base_output_dir: "../../data/outputs/"
+pt_files_dir: "../../data/pt_files/"
+
+subjects_to_remove:
+  - 'CU0058'
+  - 'CU0059'
+  - 'CU0060'
+  - 'CU0061'
+  - 'CU0068'
+  - 'CU0074'
+
+min_timepoints_for_precompute: 180
+timepoints_segment: 45
+
+model_type: "HighAccuracy3DCNN"
+device_selection: "cuda:0" 
+num_epochs: 5
+learning_rate: 0.0001
+batch_size: 8
+n_splits_cv: 100
+random_state: 42
+test_size_split: 0.2
+max_grad_norm: 1.0
+
+n_runs: 1 
