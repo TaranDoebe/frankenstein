@@ -14,17 +14,19 @@ subjects_to_remove:
   - 'CU0068'
   - 'CU0074'
 
+use_mean_images: true 
+
 min_timepoints_for_precompute: 180
 timepoints_segment: 45
 
-model_type: "HighAccuracy3DCNN"
+model_type: "ResNet3DCNN" # HighAccuracy3DCNN / Simple3DCNN / "ResNet3DCNN"
 device_selection: "cuda:0" 
-num_epochs: 5
+num_epochs: 1
 learning_rate: 0.0001
 batch_size: 8
-n_splits_cv: 100
-random_state: 42
+n_splits_cv: 5
+random_state: null
 test_size_split: 0.2
 max_grad_norm: 1.0
 
-n_runs: 1 
+n_runs: 30

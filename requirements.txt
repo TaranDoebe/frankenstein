@@ -6,3 +6,4 @@ matplotlib
 nibabel
 tqdm
 PyYAML
+torchinfo
