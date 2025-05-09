@@ -1,16 +1,11 @@
-# main.py
-
 import os
 import argparse
 import yaml
 import time
 import torch
-import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
-from tqdm import tqdm
-from sklearn.metrics import precision_score, recall_score, f1_score
 from datasets.fmri_dataset import fMRIDataset, preload_mean_images
 from utils.data_preparation import (
     load_and_clean_clinical_data,
@@ -20,8 +15,6 @@ from utils.data_preparation import (
 )
 from utils.experiment_io import create_experiment_root
 from utils.log_results import run_cv
-from utils.training_evaluation import train_fold_routine, evaluate_model
-from evaluation.plotting import save_training_plots, save_test_set_results_plots
 
 def main(config_path):
     with open(config_path, 'r') as f:
