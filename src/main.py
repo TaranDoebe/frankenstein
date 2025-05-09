@@ -70,10 +70,6 @@ def main(config_path):
     if not data_dict_train_val:
         print("No precomputed images loaded for training/validation. Check paths and precomputation. Exiting.")
         return
-    # mean_df_train_val = create_subject_part_df(train_val_subjects_df, data_dict_train_val)
-    # if mean_df_train_val.empty:
-    #     print("Failed to create training/validation DataFrame from preloaded images. Exiting.")
-    #     return
 
     test_loader = None
     if not test_subjects_df.empty:
