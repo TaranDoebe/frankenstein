@@ -110,6 +110,6 @@ def create_subject_part_df(processed_df, data_dict):
         if not label_series.empty:
             label = int(label_series.values[0])
             subject_part_list.append({"subject_part": part_id, "label": label})
-        else:
-            print(f"Warning: Could not find label for {subject_id_base} from part_id {part_id}")
+        # else:
+        #     print(f"Warning: Could not find label for {subject_id_base} from part_id {part_id}")
     return pd.DataFrame(subject_part_list)
