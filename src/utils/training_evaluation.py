@@ -47,9 +47,9 @@ def evaluate_model(model, val_loader, criterion, device):
             total_loss += loss.item()
 
             predicted = (torch.sigmoid(outputs) > 0.5).int()
+            
             all_predictions.extend(predicted.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
-
     avg_val_loss = total_loss / len(val_loader) if len(val_loader) > 0 else 0.0
     if len(all_labels) == 0:
         return avg_val_loss, 0.0, 0.0, 0.0, 0.0
