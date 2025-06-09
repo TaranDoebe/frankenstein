@@ -1,10 +1,8 @@
-
-clinical_data_path: "../../data/csv/labels_BinClass.csv"
-#fmri_data_path: "../../data/pt_files/"
-mean_image_path: "../../data/processed/mean_image/T_45/" 
-precompute_save_dir: "../../data/processed/mean_image/T_45/" 
+# BASE
+clinical_data_path: "../../data/csv/labels_BinClass.csv"  # "../../data/csv/Labels_shuffled.csv"
+mean_image_path: "../../data/pt_files/MEAN/" 
 base_output_dir: "../../data/outputs/"
-pt_files_dir: "../../data/pt_files/"
+raw_pt_dir: "../../data/pt_files/ORIGINAL/"
 
 subjects_to_remove:
   - 'CU0058'
@@ -14,19 +12,18 @@ subjects_to_remove:
   - 'CU0068'
   - 'CU0074'
 
-use_mean_images: true 
+data_loading_mode: "mean_timepoints" # individual_timepoints vs. mean_timepoints
 
-min_timepoints_for_precompute: 180
-timepoints_segment: 45
-
-model_type: "ResNet3DCNN" # HighAccuracy3DCNN / Simple3DCNN / "ResNet3DCNN"
 device_selection: "cuda:0" 
-num_epochs: 1
-learning_rate: 0.0001
-batch_size: 8
-n_splits_cv: 5
-random_state: null
-test_size_split: 0.2
-max_grad_norm: 1.0
+random_state: 43
 
-n_runs: 30
+nested_cv:
+  outer_splits: 2
+  inner_splits: 2
+  param_grid:
+    model_type: [Base3DCNN2] # Base3DCNN5, HighAccuracy3DCNN, ResNetCNN] Base3DCNN, Base3DCNN2, Base3DCNN3,
+    learning_rate: [0.001, 0.00001] # , 0.00009, 0.0008, 0.00005]
+    batch_size: [8]
+    max_grad_norm: [5.0]
+    num_epochs: [2] #, 2, 3] 
+    num_workers: [4]

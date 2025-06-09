@@ -1,0 +1,29 @@
+clinical_data_path: "../../data/csv/labels_BinClass.csv"  # "../../data/csv/Labels_shuffled.csv"
+mean_image_path: "../../data/pt_files/processed/T_45_OG/" 
+base_output_dir: "../../data/outputs/"
+raw_pt_dir: "../../data/pt_files/ORIGINAL/"
+
+subjects_to_remove:
+  - 'CU0058'
+  - 'CU0059'
+  - 'CU0060'
+  - 'CU0061'
+  - 'CU0068'
+  - 'CU0074'
+
+data_loading_mode: "individual_timepoints"
+
+device_selection: "cuda:0" 
+random_state: 42
+
+nested_cv:
+  outer_splits: 10
+  inner_splits: 2
+  param_grid:
+    model_type: [CNNGRUClassifier]
+    learning_rate: [0.001]
+    batch_size: [16]
+    max_grad_norm: [5.0]
+    num_epochs: [15] # 
+    num_workers: [6] #   
+    sequence_length: [60] 

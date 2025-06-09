@@ -1,9 +1,6 @@
-# utils/data_preparation.py
-
 import os
 import pandas as pd
 import torch
-# import nibabel as nib # No longer needed for this specific function if only loading .pt
 from tqdm import tqdm
 
 def load_and_clean_clinical_data(csv_path, subjects_to_remove):
@@ -12,178 +9,60 @@ def load_and_clean_clinical_data(csv_path, subjects_to_remove):
     clinical_data.reset_index(drop=True, inplace=True)
     clinical_data['w8_responder'] = clinical_data['w8_responder'].map({'Yes': 1, 'No': 0})
     clinical_data['Stage1TX'] = clinical_data['Stage1TX'].map({'SER': 1, 'PLA': 0})
+
     filtered_clinical_data = clinical_data[~clinical_data['ProjectSpecificId'].isin(subjects_to_remove)]
     filtered_clinical_data.reset_index(drop=True, inplace=True)
+
     return filtered_clinical_data
 
 def get_sertraline_subject_pt_paths(main_clinical_df, pt_files_directory):
-    """
-    Filters for sertraline-treated subjects and finds paths to their .pt files.
-
-    Args:
-        main_clinical_df (pd.DataFrame): DataFrame containing clinical data including 'ProjectSpecificId' and 'Stage1TX'.
-        pt_files_directory (str): The directory where the .pt files (named as 'ProjectSpecificId.pt') are stored.
-
-    Returns:
-        pd.DataFrame: A DataFrame filtered for sertraline subjects who have a corresponding .pt file,
-                      with an added 'fMRI_path' column pointing to their .pt file.
-    """
     sertraline_df = main_clinical_df[main_clinical_df['Stage1TX'] == 1].copy()
     subject_ids = sertraline_df['ProjectSpecificId'].tolist()
     fmri_pt_files = {}
     missing_subjects = []
 
     for sub_id in subject_ids:
-        # Construct the expected .pt file path
         file_path = os.path.join(pt_files_directory, f"{sub_id}.pt")
+        if os.path.exists(file_path): fmri_pt_files[sub_id] = file_path
+        else: missing_subjects.append(sub_id)
 
-        if os.path.exists(file_path):
-            fmri_pt_files[sub_id] = file_path
-        else:
-            missing_subjects.append(sub_id)
-            # Optional: print(f"Missing .pt file for subject: {sub_id} at {file_path}")
-
-    if missing_subjects:
-        print(f"Warning: Missing .pt files for {len(missing_subjects)} subjects: {missing_subjects[:5]}...") # Print first few
-
-    # Filter the DataFrame to include only subjects for whom a .pt file was found
     processed_df = sertraline_df[sertraline_df['ProjectSpecificId'].isin(fmri_pt_files.keys())].copy()
     processed_df['fMRI_path'] = processed_df['ProjectSpecificId'].map(fmri_pt_files)
     processed_df.reset_index(drop=True, inplace=True)
 
     return processed_df
 
-def compute_and_normalize_mean_img(tensor, eps=1e-6):
-    # This function assumes the input tensor is the raw time-series fMRI data
-    # If your .pt files already store mean images, this function's usage context changes.
-    mean_image = tensor.mean(dim=0) # Assuming time is the first dimension
-    mean_image = (mean_image - mean_image.mean()) / (mean_image.std() + eps)
-    return mean_image.unsqueeze(0) # Add channel dimension
-
-def save_mean_image_parts(mean_images, subject_id, save_dir):
-    for i, mean_image in enumerate(mean_images, start=1):
-        save_path = os.path.join(save_dir, f"{subject_id}_part{i}.pt")
-        torch.save(mean_image, save_path)
-
-def precompute_and_save_mean_images(df_with_pt_paths, save_dir, min_timepoints=180, segment_timepoints=45):
-    """
-    Loads .pt files (assumed to be full fMRI time series), computes mean images for segments, and saves them.
-    df_with_pt_paths: DataFrame with 'ProjectSpecificId' and 'fMRI_path' (pointing to subject.pt)
-    """
-    os.makedirs(save_dir, exist_ok=True)
-    skipped_subjects_count = 0
-    for index, row in tqdm(df_with_pt_paths.iterrows(), total=df_with_pt_paths.shape[0], desc="Precomputing mean images from .pt"):
-        subject_id = row['ProjectSpecificId']
-        fmri_pt_path = row['fMRI_path'] # This now points to subject_id.pt
-
-        try:
-            # Load the tensor from the .pt file
-            # Ensure the loaded tensor has the shape (time, X, Y, Z) or similar
-            fmri_tensor = torch.load(fmri_pt_path).float() # Assuming it's a 4D tensor T,D,H,W
-
-            # Validate tensor dimensions (example, adjust as per your .pt file structure)
-            if fmri_tensor.ndim < 4 or fmri_tensor.shape[0] < min_timepoints : # Assuming time is dim 0
-                print(f"Skipping {subject_id}: Tensor shape {fmri_tensor.shape} not suitable or not enough timepoints ({fmri_tensor.shape[0]}).")
-                skipped_subjects_count += 1
-                continue
-
-            num_segments = min_timepoints // segment_timepoints
-            # Ensure segments are taken from the first 'min_timepoints' if more are available
-            segments = [fmri_tensor[i*segment_timepoints:(i+1)*segment_timepoints] for i in range(num_segments)]
-            mean_images = [compute_and_normalize_mean_img(segment) for segment in segments]
-
-            save_mean_image_parts(mean_images, subject_id, save_dir)
-        except Exception as e:
-            print(f"Error processing {subject_id} from {fmri_pt_path}: {e}")
-            skipped_subjects_count +=1
-
-    if skipped_subjects_count > 0:
-        print(f"Skipped {skipped_subjects_count} subjects during mean image precomputation from .pt files.")
-    print(f"Mean images precomputation from .pt complete. Saved to: {save_dir}")
-
-
 def load_mean_parts_for_sertraline_subjects(base_clinical_df, mean_parts_dir, num_parts_expected=4):
-    """
-    Filters clinical data for SERTRALINE-treated subjects, verifies the existence of 
-    all their precomputed mean image part files, loads these tensors, and matches 
-    them to patient IDs.
-
-    Args:
-        base_clinical_df (pd.DataFrame): DataFrame after initial loading and cleaning
-                                         (e.g., from load_and_clean_clinical_data).
-                                         Must contain 'ProjectSpecificId' and 'Stage1TX'
-                                         (where 'Stage1TX' for SERTRALINE is 1).
-        mean_parts_dir (str): The directory where the precomputed mean image part
-                              files (e.g., 'CU0016_part1.pt') are stored.
-        num_parts_expected (int): The number of mean image parts expected for each
-                                  subject (e.g., 4).
-
-    Returns:
-        tuple: (pd.DataFrame, dict)
-            - subjects_df (pd.DataFrame): A DataFrame containing only SERTRALINE
-              subjects for whom all mean image parts were found and loaded.
-              This DataFrame includes the original clinical data for these subjects.
-              (One row per subject).
-            - data_dict (dict): A dictionary mapping a composite key
-              'ProjectSpecificId_partX' (e.g., 'CU0016_part1') to the loaded
-              PyTorch tensor for that part.
-    """
-    # Filter for sertraline-treated subjects (assuming 'SER' has been mapped to 1)
-    # by your load_and_clean_clinical_data function.
     sertraline_subjects_df = base_clinical_df[base_clinical_df['Stage1TX'] == 1].copy()
     
-    if sertraline_subjects_df.empty:
-        print("No SERTRALINE-treated subjects found in the provided clinical data.")
-        return pd.DataFrame(columns=base_clinical_df.columns), {}
+    if sertraline_subjects_df.empty: return pd.DataFrame(columns=base_clinical_df.columns), {}
 
     valid_subject_ids_for_final_df = []
     loaded_tensor_data_dict = {}
-    
-    print(f"Attempting to load mean image parts from directory: {mean_parts_dir}")
-    print(f"Expecting {num_parts_expected} parts per subject.")
 
     for subject_id in tqdm(sertraline_subjects_df['ProjectSpecificId'], desc="Processing SERTRALINE subjects"):
         current_subject_has_all_parts = True
-        parts_loaded_for_current_subject = {} # Temporarily store parts for this subject
+        parts_loaded_for_current_subject = {}
 
         for i in range(1, num_parts_expected + 1):
             part_identifier = f"{subject_id}_part{i}"
             expected_part_file_path = os.path.join(mean_parts_dir, f"{part_identifier}.pt")
             
             if os.path.exists(expected_part_file_path):
-                try:
-                    # Load the tensor from the .pt file
-                    tensor_data = torch.load(expected_part_file_path)
-                    parts_loaded_for_current_subject[part_identifier] = tensor_data
-                except Exception as e:
-                    print(f"\nWarning: Failed to load part file {expected_part_file_path} for subject {subject_id}. Error: {e}")
-                    current_subject_has_all_parts = False
-                    break # Stop processing parts for this subject
-            else:
-                # Optional: More verbose logging for missing parts if needed for debugging.
-                # print(f"\nInfo: Missing part file {expected_part_file_path} for subject {subject_id}.")
-                current_subject_has_all_parts = False
-                break # Stop processing parts for this subject
+                tensor_data = torch.load(expected_part_file_path)
+                parts_loaded_for_current_subject[part_identifier] = tensor_data
         
         if current_subject_has_all_parts:
             valid_subject_ids_for_final_df.append(subject_id)
             loaded_tensor_data_dict.update(parts_loaded_for_current_subject)
-        # else:
-            # Optional: Log skipped subjects more explicitly if desired.
-            # print(f"\nInfo: Subject {subject_id} skipped due to missing or unloadable mean image parts.")
         
-    if not valid_subject_ids_for_final_df:
-        print(f"Warning: No SERTRALINE subjects were found for whom all {num_parts_expected} mean image parts could be successfully loaded from {mean_parts_dir}.")
-        return pd.DataFrame(columns=sertraline_subjects_df.columns), {}
+    if not valid_subject_ids_for_final_df: return pd.DataFrame(columns=sertraline_subjects_df.columns), {}
 
-    # Create the final DataFrame containing only subjects for whom all parts were loaded
     final_subjects_df = sertraline_subjects_df[sertraline_subjects_df['ProjectSpecificId'].isin(valid_subject_ids_for_final_df)].copy()
     final_subjects_df.reset_index(drop=True, inplace=True)
     
     num_subjects_with_parts = len(final_subjects_df)
     num_total_parts_loaded = len(loaded_tensor_data_dict)
-    print(f"\nSuccessfully loaded all {num_parts_expected} mean parts for {num_subjects_with_parts} SERTRALINE subjects.")
-    print(f"Total individual image parts loaded into data_dict: {num_total_parts_loaded}.")
     
     return final_subjects_df, loaded_tensor_data_dict
 
@@ -195,6 +74,5 @@ def create_subject_part_df(processed_df, data_dict):
         if not label_series.empty:
             label = int(label_series.values[0])
             subject_part_list.append({"subject_part": part_id, "label": label})
-        # else:
-        #     print(f"Warning: Could not find label for {subject_id_base} from part_id {part_id}")
+
     return pd.DataFrame(subject_part_list)
