@@ -1,0 +1,29 @@
+# BASE
+clinical_data_path: "../../data/csv/labels_BinClass.csv"  # "../../data/csv/Labels_shuffled.csv"
+mean_image_path: "../../data/pt_files/MEAN/" 
+base_output_dir: "../../data/outputs/"
+raw_pt_dir: "../../data/pt_files/ORIGINAL/"
+
+subjects_to_remove:
+  - 'CU0058'
+  - 'CU0059'
+  - 'CU0060'
+  - 'CU0061'
+  - 'CU0068'
+  - 'CU0074'
+
+data_loading_mode: "mean_timepoints" # individual_timepoints vs. mean_timepoints
+
+device_selection: "cuda:0" 
+random_state: 43
+
+nested_cv:
+  outer_splits: 2
+  inner_splits: 2
+  param_grid:
+    model_type: [Base3DCNN2] # Base3DCNN5, HighAccuracy3DCNN, ResNetCNN] Base3DCNN, Base3DCNN2, Base3DCNN3,
+    learning_rate: [0.001, 0.00001] # , 0.00009, 0.0008, 0.00005]
+    batch_size: [8]
+    max_grad_norm: [5.0]
+    num_epochs: [2] #, 2, 3] 
+    num_workers: [4]
